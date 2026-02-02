@@ -2,11 +2,32 @@
 
 #include "TimeVerification.h"
 
+#include "TimeVerificationConfig.h"
+
+//only editor include
+#if WITH_EDITOR
+#include "ISettingsModule.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "FTimeVerificationModule"
 
 void FTimeVerificationModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+#if WITH_EDITOR
+	// Get Settings Module
+	if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+	{
+		// Register to Project Settings
+		SettingsModule->RegisterSettings(
+			"Project",         // ContainerName
+			"Plugins",         // CategoryName
+			"Time Verification", // DisplayName
+			LOCTEXT("TimeVerificationSettingsName", "Time Verification"),
+			LOCTEXT("TimeVerificationSettingsDesc", "Configure time verification plugin settings."),
+			GetMutableDefault<UTimeVerificationConfig>() // 配置对象
+		);
+	}
+#endif
 }
 
 void FTimeVerificationModule::ShutdownModule()
