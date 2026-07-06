@@ -38,6 +38,8 @@ public class TimeVerification : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"OpenSSL",
+				"SSL",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

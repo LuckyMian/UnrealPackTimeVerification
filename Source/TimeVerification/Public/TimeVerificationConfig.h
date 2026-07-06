@@ -9,6 +9,24 @@
 /**
  * 
  */
+USTRUCT(BlueprintType)
+struct FEncryptedUsers
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Time Verification")
+	FString UsersID;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Time Verification")
+	FString CPU;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Time Verification")
+	FString DiskSN;
+	
+};
+
+
 UCLASS(config=Game, defaultconfig)
 class TIMEVERIFICATION_API UTimeVerificationConfig : public UObject
 {
@@ -22,10 +40,16 @@ public:
 	UPROPERTY(EditAnywhere, config, Category="General")
 	bool bEnableTimeVerification = false;
 
-	UPROPERTY(EditAnywhere, config, Category="General")
+	UPROPERTY(EditAnywhere, config, Category="General",meta = (EditCondition = "bEnableTimeVerification"))
 	int32 Year;
-	UPROPERTY(EditAnywhere, config, Category="General")
+	UPROPERTY(EditAnywhere, config, Category="General",meta = (EditCondition = "bEnableTimeVerification"))
 	int32 Month;
-	UPROPERTY(EditAnywhere, config, Category="General")
+	UPROPERTY(EditAnywhere, config, Category="General",meta = (EditCondition = "bEnableTimeVerification"))
 	int32 Day;
+	
+	UPROPERTY(EditAnywhere, config, Category="General",meta = (EditCondition = "bEnableTimeVerification"))
+	bool bIsEnableEncryptedUsers = false;
+	
+	UPROPERTY(EditAnywhere, config, Category="General",meta = (EditCondition = "bIsEnableEncryptedUsers"))
+	TArray<FEncryptedUsers> EncryptedUsers;
 };

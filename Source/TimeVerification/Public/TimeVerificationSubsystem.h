@@ -24,6 +24,8 @@ private:
 	void OnWorldReady(UWorld* World,const UWorld::InitializationValues InitValues) const;
 	
 	bool IsBeforeVerificationDate();
-	
+
 	bool CheckSystemTimeIntegrity();
+
+	bool IsDeviceAuthorized();
 };

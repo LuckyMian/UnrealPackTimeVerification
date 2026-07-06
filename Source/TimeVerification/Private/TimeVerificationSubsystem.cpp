@@ -2,16 +2,21 @@
 
 
 #include "TimeVerificationSubsystem.h"
-
 #include "TimeVerificationConfig.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/Paths.h"
+#include "TimeVerificationOnline.h"
 #include "HAL/PlatformMisc.h"
 
 void UTimeVerificationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
+	//DEBUG
+	//std::string templog = TimeVerificationOnline::GetDeviceUniqueIDByWMI();
+	//UE_LOG(LogTemp, Error, TEXT("%s"), *FString(templog.c_str()));
+	//TimeVerificationOnline::ShowWindowsMessageBox(TEXT("Time Verification Subsystem"),FString(templog.c_str()));
+	
 	const UTimeVerificationConfig* Config = GetDefault<UTimeVerificationConfig>();
 	if (!Config || !Config->bEnableTimeVerification)
 	{
@@ -21,16 +26,28 @@ void UTimeVerificationSubsystem::Initialize(FSubsystemCollectionBase& Collection
 	// Step 1: Verify no files have modification time in the future (returns true if integrity OK).
 	if (!CheckSystemTimeIntegrity())
 	{
+		TimeVerificationOnline::ShowWindowsMessageBox(TEXT("Time Verification Subsystem"),TEXT("当前系统时间不正确."));
 		ExitGame();
 		return;
 	}
 	// Step 2: Verify current time is before the configured verification date (returns true if allowed to run).
 	if (!IsBeforeVerificationDate())
 	{
+		TimeVerificationOnline::ShowWindowsMessageBox(TEXT("Time Verification Subsystem"),TEXT("当前验证时间已过期."));
 		ExitGame();
 		return;
 	}
-	// All checks passed; no action required.
+
+	// Step 3: If encrypted user whitelist is enabled, verify this device is authorized.
+	if (Config->bIsEnableEncryptedUsers)
+	{
+		if (!IsDeviceAuthorized())
+		{
+			TimeVerificationOnline::ShowWindowsMessageBox(TEXT("Time Verification Subsystem"), TEXT("当前设备未授权，无法运行."));
+			ExitGame();
+			return;
+		}
+	}
 }
 
 void UTimeVerificationSubsystem::Deinitialize()
@@ -56,8 +73,7 @@ void UTimeVerificationSubsystem::OnWorldReady(UWorld* World,const UWorld::Initia
 	{
 		APlayerController* PC = World->GetFirstPlayerController();
 
-		FMessageDialog::Open(EAppMsgType::Ok,FText::FromString(TEXT("TimeVerification is Error, Game will quit."))
-);
+
 		// Defer quit to next frame so controller is valid.
 		World->GetTimerManager().SetTimerForNextTick([World, PC]()
 		{
@@ -156,4 +172,46 @@ bool UTimeVerificationSubsystem::CheckSystemTimeIntegrity()
 
 	// Integrity check fails if any file has a modification time in the future (possible time tampering).
 	return !bHasFutureFile;
+}
+
+bool UTimeVerificationSubsystem::IsDeviceAuthorized()
+{
+	const UTimeVerificationConfig* Config = GetDefault<UTimeVerificationConfig>();
+	if (!Config || Config->EncryptedUsers.Num() == 0)
+	{
+		return false;
+	}
+
+	// GetDeviceUniqueIDByWMI returns a string like "CPU=xxx;DiskSN=yyy;"
+	std::string RawID = TimeVerificationOnline::GetDeviceUniqueIDByWMI();
+	FString DeviceInfo = FString(RawID.c_str());
+
+	// Parse key=value pairs into a map
+	TMap<FString, FString> DeviceFields;
+	TArray<FString> Pairs;
+	DeviceInfo.ParseIntoArray(Pairs, TEXT(";"), true);
+	for (const FString& Pair : Pairs)
+	{
+		FString Key, Value;
+		if (Pair.Split(TEXT("="), &Key, &Value))
+		{
+			DeviceFields.Add(Key.TrimStartAndEnd(), Value.TrimStartAndEnd());
+		}
+	}
+
+	const FString* CurrentCPU   = DeviceFields.Find(TEXT("CPU"));
+	const FString* CurrentDisk  = DeviceFields.Find(TEXT("DiskSN"));
+
+	for (const FEncryptedUsers& User : Config->EncryptedUsers)
+	{
+		bool bCPUMatch  = CurrentCPU  && *CurrentCPU  == User.CPU;
+		bool bDiskMatch = CurrentDisk && *CurrentDisk == User.DiskSN;
+
+		if (bCPUMatch && bDiskMatch)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
